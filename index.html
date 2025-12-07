@@ -27,7 +27,10 @@
                     <p>Nenhum número registrado</p>
                 </div>
             </div>
-
+<div class="gatilho-info" id="gatilhoInfo">
+    <span class="gatilho-label">Gatilho Ativo:</span>
+    <span class="gatilho-valor">Nenhum</span>
+</div>
             <div class="controls">
                 <input type="number" id="numeroInput" class="input" placeholder="0-36" min="0" max="36">
                 <button onclick="adicionarNumero()" class="button btn-add">Adicionar</button>
@@ -253,37 +256,41 @@
             document.getElementById('taxaAcerto').textContent = taxa + '%';
         }
 
-        function atualizarListaNumeros() {
-            const container = document.getElementById('numerosLista');
-            
-            if (jogadas.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state-lista">
-                        <p>Nenhum número registrado</p>
-                    </div>
-                `;
-                return;
-            }
+function atualizarListaNumeros() {
+    const container = document.getElementById('numerosLista');
+    const gatilhoInfo = document.querySelector('.gatilho-valor');
+    
+    if (jogadas.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state-lista">
+                <p>Nenhum número registrado</p>
+            </div>
+        `;
+        gatilhoInfo.textContent = 'Nenhum';
+        return;
+    }
 
-            let html = '';
-            jogadas.slice().reverse().forEach(jogada => {
-                const statusClass = jogada.acertou ? 'acertou' : '';
-                html += `
-                    <div class="numero-item ${statusClass}">
-                        <div class="numero-valor">${jogada.numero}</div>
-                        <div class="numero-info">
-                            ${jogada.acertou ? '<span class="acerto-badge">✓</span>' : ''}
-                            <span class="numero-id">#${jogada.id}</span>
-                        </div>
-                    </div>
-                `;
-            });
+    // Atualizar gatilho ativo
+    const ultimaJogada = jogadas[jogadas.length - 1];
+    gatilhoInfo.textContent = ultimaJogada.gatilho !== '0' ? ultimaJogada.gatilho : 'Nenhum';
 
-            container.innerHTML = html;
-            
-            // Auto scroll para o início (último número)
-            container.scrollLeft = 0;
-        }
+    let html = '';
+    jogadas.slice().reverse().forEach(jogada => {
+        const statusClass = jogada.acertou ? 'acertou' : '';
+        html += `
+            <div class="numero-item ${statusClass}">
+                <div class="numero-valor">${jogada.numero}</div>
+                <div class="numero-info">
+                    ${jogada.acertou ? '<span class="acerto-badge">✓</span>' : ''}
+                    <span class="numero-id">#${jogada.id}</span>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    container.scrollLeft = 0;
+}
 
         function salvarConfiguracao() {
             const numero = parseInt(document.getElementById('numeroConfig').value);
