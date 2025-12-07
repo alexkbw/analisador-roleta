@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisador de Gatilhos - Roleta</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🎯 Analisador de Gatilhos</h1>
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="analise">Análise</button>
+                <button class="tab-btn" data-tab="configuracao">Configuração</button>
+            </div>
+        </div>
+
+        <!-- Tab Análise -->
+        <div class="tab-content active" id="tab-analise">
+            <div class="iframe-container">
+                <iframe id="roletaIframe" src="about:blank"></iframe>
+            </div>
+
+            <div class="numeros-lista" id="numerosLista">
+                <div class="empty-state-lista">
+                    <p>Nenhum número registrado</p>
+                </div>
+            </div>
+
+            <div class="controls">
+                <input type="number" id="numeroInput" class="input" placeholder="0-36" min="0" max="36">
+                <button onclick="adicionarNumero()" class="button btn-add">Adicionar</button>
+                <button onclick="desfazer()" class="button btn-undo">Desfazer</button>
+                <button onclick="limpar()" class="button btn-clear">Limpar</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalJogadas">0</div>
+                    <div class="stat-label">Total Jogadas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value status-success" id="totalAcertos">0</div>
+                    <div class="stat-label">Acertos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="taxaAcerto">0%</div>
+                    <div class="stat-label">Taxa de Acerto</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Configuração -->
+        <div class="tab-content" id="tab-configuracao">
+            <div class="panel">
+                <h2 class="panel-title">Configurar URL do Iframe</h2>
+                <div class="url-controls">
+                    <input type="text" id="urlInput" class="input" placeholder="Digite a URL (ex: https://exemplo.com)">
+                    <button onclick="salvarUrl()" class="button btn-add">Salvar URL</button>
+                </div>
+                <p class="small-text" style="margin-top: 0.5rem; color: rgba(255, 255, 255, 0.5);">URL atual: <span id="urlAtual">about:blank</span></p>
+            </div>
+
+            <div class="panel" style="margin-top: 1.5rem;">
+                <h2 class="panel-title">Configurar Gatilhos</h2>
+                <p class="subtitle" style="margin-bottom: 1.5rem;">Defina os gatilhos e números cobertos para cada número</p>
+                
+                <div class="config-controls">
+                    <select id="numeroConfig" class="input">
+                        <option value="">Selecione um número (0-36)</option>
+                    </select>
+                    <input type="text" id="gatilhoInput" class="input" placeholder="Ex: 17, 20, 0">
+                    <input type="text" id="cobertosInput" class="input" placeholder="Números cobertos (separados por vírgula)">
+                    <button onclick="salvarConfiguracao()" class="button btn-add">Salvar</button>
+                </div>
+
+                <div class="panel" style="margin-top: 1.5rem; background: rgba(0,0,0,0.3);">
+                    <h3 class="panel-title small">Configurações Atuais</h3>
+                    <div id="listaConfiguracoes"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dados iniciais dos gatilhos
+        const gatilhosIniciais = {
+            33: { gatilho: "33,34,35", cobertos: [1,20,14,33,16,24,5,17,25,2,34,6,27,13,3,26,0,35,12,28,7] },
+            20: { gatilho: "17, 20, 0", cobertos: [27,6,34,17,25,2,21,16,33,1,20,14,31,9,19,15,32,0,26,3,35] },
+            19: { gatilho: "27, 7, 19", cobertos: [11,36,13,27,6,34,17,22,18,29,7,28,12,35,2,21,4,19,15,32,0] },
+            34: { gatilho: "33,34,35", cobertos: [1,20,14,33,16,24,5,17,25,2,34,6,27,13,3,26,0,35,12,28,7] },
+            16: { gatilho: "21, 16, 12", cobertos: [17,25,2,21,4,19,15,1,5,24,16,33,1,20,29,7,28,12,35,3,26] },
+            30: { gatilho: "30,31,32", cobertos: [11,36,13,30,8,23,10,9,22,18,31,14,20,1,0,26,3,32,15,19,4] },
+            36: { gatilho: "1, 3, 36", cobertos: [24,16,33,1,20,14,31,28,12,35,3,26,0,32,8,30,11,36,13,27,6] },
+            25: { gatilho: "25, 5, 22", cobertos: [6,34,17,25,2,21,4,8,23,10,5,24,16,33,14,31,9,22,18,29,7] },
+            31: { gatilho: "30,31,32", cobertos: [11,36,13,30,8,23,10,9,22,18,31,14,20,1,0,26,3,32,15,19,4] },
+            3: { gatilho: "1, 3, 36", cobertos: [24,16,33,1,20,14,31,28,12,35,3,26,0,32,8,30,11,36,13,27,6] },
+            17: { gatilho: "17, 20, 0", cobertos: [27,6,34,17,25,2,21,16,33,1,20,14,31,9,19,15,32,0,26,3,35] },
+            0: { gatilho: "17, 20, 0", cobertos: [27,6,34,17,25,2,21,16,33,1,20,14,31,9,19,15,32,0,26,3,35] },
+            12: { gatilho: "21, 16, 12", cobertos: [17,25,2,21,4,19,15,1,5,24,16,33,1,20,29,7,28,12,35,3,26] },
+            27: { gatilho: "27, 7, 19", cobertos: [11,36,13,27,6,34,17,22,18,29,7,28,12,35,2,21,4,19,15,32,0] },
+            5: { gatilho: "25, 5, 22", cobertos: [6,34,17,25,2,21,4,8,23,10,5,24,16,33,14,31,9,22,18,29,7] },
+            1: { gatilho: "1, 3, 36", cobertos: [24,16,33,1,20,14,31,28,12,35,3,26,0,32,8,30,11,36,13,27,6] },
+            32: { gatilho: "30,31,32", cobertos: [11,36,13,30,8,23,10,9,22,18,31,14,20,1,0,26,3,32,15,19,4] },
+            7: { gatilho: "27, 7, 19", cobertos: [11,36,13,27,6,34,17,22,18,29,7,28,12,35,2,21,4,19,15,32,0] },
+            35: { gatilho: "33,34,35", cobertos: [1,20,14,33,16,24,5,17,25,2,34,6,27,13,3,26,0,35,12,28,7] },
+            21: { gatilho: "21, 16, 12", cobertos: [17,25,2,21,4,19,15,1,5,24,16,33,1,20,29,7,28,12,35,3,26] },
+            22: { gatilho: "25, 5, 22", cobertos: [6,34,17,25,2,21,4,8,23,10,5,24,16,33,14,31,9,22,18,29,7] }
+        };
+
+        let gatilhos = {...gatilhosIniciais};
+        let jogadas = [];
+        let numerosCobertosAtivos = [];
+        let urlIframe = 'about:blank';
+
+        // Carregar URL salva
+        const urlSalva = localStorage.getItem('urlIframe');
+        if (urlSalva) {
+            urlIframe = urlSalva;
+            document.getElementById('roletaIframe').src = urlIframe;
+            document.getElementById('urlAtual').textContent = urlIframe;
+        }
+
+        // Inicializar tabs
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabId = btn.dataset.tab;
+                
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                btn.classList.add('active');
+                document.getElementById('tab-' + tabId).classList.add('active');
+
+                if (tabId === 'configuracao') {
+                    carregarConfiguracoes();
+                    document.getElementById('urlInput').value = urlIframe !== 'about:blank' ? urlIframe : '';
+                }
+            });
+        });
+
+        // Preencher select de números
+        const selectNumero = document.getElementById('numeroConfig');
+        for (let i = 0; i <= 36; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            selectNumero.appendChild(option);
+        }
+
+        selectNumero.addEventListener('change', function() {
+            const numero = parseInt(this.value);
+            if (gatilhos[numero]) {
+                document.getElementById('gatilhoInput').value = gatilhos[numero].gatilho;
+                document.getElementById('cobertosInput').value = gatilhos[numero].cobertos.join(',');
+            } else {
+                document.getElementById('gatilhoInput').value = '0';
+                document.getElementById('cobertosInput').value = '';
+            }
+        });
+
+        function salvarUrl() {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) {
+                alert('Digite uma URL válida');
+                return;
+            }
+
+            urlIframe = url;
+            localStorage.setItem('urlIframe', url);
+            document.getElementById('roletaIframe').src = url;
+            document.getElementById('urlAtual').textContent = url;
+            alert('URL salva com sucesso!');
+        }
+
+        function adicionarNumero() {
+            const input = document.getElementById('numeroInput');
+            const numero = parseInt(input.value);
+
+            if (isNaN(numero) || numero < 0 || numero > 36) {
+                alert('Digite um número válido entre 0 e 36');
+                return;
+            }
+
+            const config = gatilhos[numero];
+            let acertou = false;
+
+            if (numerosCobertosAtivos.length > 0 && numerosCobertosAtivos.includes(numero)) {
+                acertou = true;
+            }
+
+            if (config && config.cobertos) {
+                numerosCobertosAtivos = config.cobertos;
+            } else {
+                numerosCobertosAtivos = [];
+            }
+
+            const jogada = {
+                id: jogadas.length + 1,
+                numero: numero,
+                gatilho: config ? config.gatilho : '0',
+                cobertos: config ? config.cobertos.length : 0,
+                acertou: acertou
+            };
+
+            jogadas.push(jogada);
+            input.value = '';
+            input.focus();
+            atualizarInterface();
+        }
+
+        function desfazer() {
+            if (jogadas.length === 0) return;
+            jogadas.pop();
+            
+            if (jogadas.length > 0) {
+                const ultimaJogada = jogadas[jogadas.length - 1];
+                const config = gatilhos[ultimaJogada.numero];
+                if (config && config.cobertos) {
+                    numerosCobertosAtivos = config.cobertos;
+                } else {
+                    numerosCobertosAtivos = [];
+                }
+            } else {
+                numerosCobertosAtivos = [];
+            }
+            
+            atualizarInterface();
+        }
+
+        function limpar() {
+            if (jogadas.length === 0) return;
+            if (confirm('Deseja limpar todo o histórico?')) {
+                jogadas = [];
+                numerosCobertosAtivos = [];
+                atualizarInterface();
+            }
+        }
+
+        function atualizarInterface() {
+            atualizarEstatisticas();
+            atualizarListaNumeros();
+        }
+
+        function atualizarEstatisticas() {
+            const total = jogadas.length;
+            const acertos = jogadas.filter(j => j.acertou).length;
+            const taxa = total > 0 ? ((acertos / total) * 100).toFixed(1) : 0;
+
+            document.getElementById('totalJogadas').textContent = total;
+            document.getElementById('totalAcertos').textContent = acertos;
+            document.getElementById('taxaAcerto').textContent = taxa + '%';
+        }
+
+        function atualizarListaNumeros() {
+            const container = document.getElementById('numerosLista');
+            
+            if (jogadas.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state-lista">
+                        <p>Nenhum número registrado</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            jogadas.slice().reverse().forEach(jogada => {
+                const statusClass = jogada.acertou ? 'acertou' : '';
+                html += `
+                    <div class="numero-item ${statusClass}">
+                        <div class="numero-valor">${jogada.numero}</div>
+                        <div class="numero-info">
+                            ${jogada.acertou ? '<span class="acerto-badge">✓</span>' : ''}
+                            <span class="numero-id">#${jogada.id}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            
+            // Auto scroll para o início (último número)
+            container.scrollLeft = 0;
+        }
+
+        function salvarConfiguracao() {
+            const numero = parseInt(document.getElementById('numeroConfig').value);
+            const gatilho = document.getElementById('gatilhoInput').value.trim();
+            const cobertosStr = document.getElementById('cobertosInput').value.trim();
+
+            if (isNaN(numero)) {
+                alert('Selecione um número válido');
+                return;
+            }
+
+            if (!gatilho) {
+                alert('Digite o gatilho');
+                return;
+            }
+
+            let cobertos = [];
+            if (cobertosStr) {
+                cobertos = cobertosStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+            }
+
+            gatilhos[numero] = {
+                gatilho: gatilho,
+                cobertos: cobertos
+            };
+
+            document.getElementById('gatilhoInput').value = '';
+            document.getElementById('cobertosInput').value = '';
+            document.getElementById('numeroConfig').value = '';
+
+            carregarConfiguracoes();
+            alert('Configuração salva com sucesso!');
+        }
+
+        function carregarConfiguracoes() {
+            const container = document.getElementById('listaConfiguracoes');
+            let html = '<div class="config-list">';
+
+            for (let i = 0; i <= 36; i++) {
+                if (gatilhos[i]) {
+                    html += `
+                        <div class="config-item">
+                            <span class="config-numero">${i}</span>
+                            <span class="config-gatilho">${gatilhos[i].gatilho}</span>
+                            <span class="config-count">${gatilhos[i].cobertos.length} números</span>
+                            <button onclick="removerConfiguracao(${i})" class="btn-remove">×</button>
+                        </div>
+                    `;
+                }
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function removerConfiguracao(numero) {
+            if (confirm(`Remover configuração do número ${numero}?`)) {
+                delete gatilhos[numero];
+                carregarConfiguracoes();
+            }
+        }
+
+        // Enter para adicionar
+        document.getElementById('numeroInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') adicionarNumero();
+        });
+
+        // Inicializar
+        atualizarInterface();
+        carregarConfiguracoes();
+    </script>
+</body>
+</html>
